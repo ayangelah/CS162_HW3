@@ -76,7 +76,7 @@ class POSTagger():
         """
         tran_prob = defaultdict(lambda: 0) # if a tuple is unseen during training, we set its transition praobility to 0
         for tag_bigram in self.tag_bigram_cnt:
-            tran_prob[tag_bigram] = None # TODO: replace None
+            tran_prob[tag_bigram] = self.tag_bigram_cnt[tag_bigram]/self.tag_unigram_cnt[tag_bigram[0]] # TODO: replace None
         return tran_prob
 
     def compute_emis_prob(self):
@@ -87,16 +87,20 @@ class POSTagger():
         """
         emis_prob = defaultdict(lambda: 0) # if a tuple is unseen during training, we set its transition praobility to 0
         for tag, word in self.tag_word_cnt:
-            emis_prob[(tag, word)] = None # TODO: replace None
+            emis_prob[(tag, word)] = self.tag_word_cnt[(tag, word)]/self.tag_unigram_cnt[tag] # TODO: replace None
         return emis_prob
 
     def init_prob(self, tag):
         """
         Compute the initial probability for a given tag.
         Returns:
-            tag_init_prob (float): the initial probaiblity for {tag}
+            tag_init_prob (float): the initial probability for {tag}
         """
-        tag_init_prob = None # TODO: replace None
+        total_inits = 0
+        for key in self.tag_bigram_cnt.keys(): # TODO: replace None
+            if key[0] == '<bos>':
+                total_inits += self.tag_bigram_cnt[key]
+        tag_init_prob = self.tag_bigram_cnt[('<bos>', tag)]/total_inits
         return tag_init_prob
 
     def viterbi(self, sent):
@@ -119,27 +123,30 @@ class POSTagger():
         # TODO implement the Viberti algorithm for POS tagging.
         # We provide an example implementation below with parts of the code removed, but feel free
         # to write your own implementation.
-        """
         V = {}
         backtrack = {}
         for step, word in enumerate(sent):
             for tag in self.all_tags:
                 if step == 0:
-                    V[tag, step] = None #replace None
+                    V[tag, step] = self.init_prob(tag) * self.emis_prob[(tag, word)] #replace None
                 else:
-                    pass #replace pass
+                    max_prev = 0 #replace pass
+                    max_prev_tag = None
                     for prev_tag in self.all_tags:
-                        pass #replace pass
-                    V[(tag, step)] = None #replace None
-                    backtrack[(tag, step)] = #replace None
+                        induction = V[prev_tag, step-1] * self.tran_prob[(prev_tag, tag)] * self.emis_prob[(tag, word)] #replace pass
+                        if induction > max_prev:
+                            max_prev = induction
+                            max_prev_tag = prev_tag
+                    V[(tag, step)] = max_prev #replace None
+                    backtrack[(tag, step)] = max_prev_tag #replace None
 
-        prev_tag = None #replace None
+        last_step = len(sent) - 1
+        prev_tag = max(self.all_tags, key=lambda tag: V[(tag, last_step)]) #replace None
         pos_tag = [prev_tag]        
         for step in range(len(sent)-1, 0, -1):
             prev_tag = backtrack[(prev_tag, step)]
             pos_tag.append(prev_tag)
         pos_tag = pos_tag[::-1]
-        """
         return pos_tag
                         
 
@@ -166,10 +173,10 @@ class POSTagger():
                 tot += 1
         acc = cor/tot
         return acc
-        
                     
 
 if __name__ == '__main__':
+
     # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--verbose', type=bool, default=True,
@@ -203,5 +210,5 @@ if __name__ == '__main__':
 
     # Tags for custom sentence
     custom_sentence = "Eddie caught the ball .".split()
-    tags = None # TODO: Get model predicted tags for the custom sentence
+    tags = pos_tagger.viterbi(custom_sentence) # TODO: Get model predicted tags for the custom sentence
     print (tags)
