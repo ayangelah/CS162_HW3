@@ -123,33 +123,47 @@ class POSTagger():
         # TODO implement the Viberti algorithm for POS tagging.
         # We provide an example implementation below with parts of the code removed, but feel free
         # to write your own implementation.
-        V = {}
-        backtrack = {}
-        for step, word in enumerate(sent):
-            for tag in self.all_tags:
-                if step == 0:
-                    V[tag, step] = self.init_prob(tag) * self.emis_prob[(tag, word)] #replace None
-                else:
-                    max_prev = 0 #replace pass
-                    max_prev_tag = None
-                    for prev_tag in self.all_tags:
-                        induction = V[prev_tag, step-1] * self.tran_prob[(prev_tag, tag)] * self.emis_prob[(tag, word)] #replace pass
-                        if induction > max_prev:
-                            max_prev = induction
-                            max_prev_tag = prev_tag
-                    V[(tag, step)] = max_prev #replace None
-                    backtrack[(tag, step)] = max_prev_tag #replace None
 
-        last_step = len(sent) - 1
-        prev_tag = max(self.all_tags, key=lambda tag: V[(tag, last_step)]) #replace None
-        pos_tag = [prev_tag]        
-        for step in range(len(sent)-1, 0, -1):
-            prev_tag = backtrack[(prev_tag, step)]
-            pos_tag.append(prev_tag)
-        pos_tag = pos_tag[::-1]
-        return pos_tag
+        # used the wikipedia pseudocode of the viterbi algorithm as reference
+        states = self.all_tags
+        trans = self.tran_prob
+        emit = self.emis_prob
+        obs = sent
+        S = len(states)
+        T = len(obs)
+
+        prob = [[0 for col in range(S)] for row in range(T)] # T x S matrix
+        prev = [[0 for col in range(S)] for row in range(T)]
+        for s in range(S):
+            prob[0][s] = self.init_prob(states[s]) * emit[(states[s], obs[0])]
+        
+        for t in range(1, T):
+            for s1 in range(S):
+                for s0 in range(S):
+                    new_prob = prob[t-1][s0] * trans[(states[s0], states[s1])] * emit[(states[s1], obs[t])] 
+                    if new_prob > prob[t][s1]:
+                        prob[t][s1] = new_prob
+                        prev[t][s1] = s0
+
+        # figure out state s with max prob[T-1][s]
+        max_end_state = 0
+        max_end_prob = 0
+        for i in range(S):
+            if prob[T-1][i] > max_end_prob:
+                max_end_prob = prob[T-1][i]
+                max_end_state = i
+        
+        path = [0] * T
+        path[T-1] = max_end_state
+        for t in range(T-2, -1, -1):
+            path[t] = prev[t+1][path[t+1]]
+        
+        # convert to actual tags, not the indices
+        tagged_path = [''] * T
+        for i in range(len(path)):
+            tagged_path[i] = states[path[i]]
+        return tagged_path
                         
-
     def test_acc(self, corpus, use_nltk=False):
         """
         Given a training corpus, we compute the model prediction accuracy.
